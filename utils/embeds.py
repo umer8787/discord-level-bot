@@ -58,14 +58,15 @@ def build_rank_embed(
     daily_remaining: str,
     color: int,
 ) -> discord.Embed:
-    embed = _base_embed(f"{member.display_name}'s Rank", "Level and daily XP progress.", color)
+    embed = _base_embed(f"{member.display_name}'s Rank", "Progress, leaderboard position, and daily earning status.", color)
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="Current Level", value=level_label, inline=True)
-    embed.add_field(name="Total XP", value=str(xp), inline=True)
-    embed.add_field(name="Rank Position", value=f"#{rank}" if rank else "Unranked", inline=True)
-    embed.add_field(name="XP Needed For Next Level", value=xp_needed, inline=True)
-    embed.add_field(name="Daily XP Earned", value=daily_progress, inline=True)
-    embed.add_field(name="Daily XP Remaining", value=daily_remaining, inline=True)
+    embed.add_field(name="Current Level", value=f"`{level_label}`", inline=True)
+    embed.add_field(name="Total XP", value=f"`{xp}`", inline=True)
+    embed.add_field(name="Rank Position", value=f"`#{rank}`" if rank else "`Unranked`", inline=True)
+    embed.add_field(name="XP Needed For Next Level", value=f"`{xp_needed}`", inline=True)
+    embed.add_field(name="Daily XP Earned", value=f"`{daily_progress}`", inline=True)
+    embed.add_field(name="Daily XP Remaining", value=f"`{daily_remaining}`", inline=True)
+    embed.set_footer(text="Rank updates automatically as you stay active.")
     return embed
 
 
@@ -80,15 +81,16 @@ def build_profile_embed(
     daily_progress: str,
     color: int,
 ) -> discord.Embed:
-    embed = _base_embed(f"{member.display_name}'s Profile", "Community activity summary.", color)
+    embed = _base_embed(f"{member.display_name}'s Profile", "Premium activity snapshot for this member.", color)
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="Level", value=level_label, inline=True)
-    embed.add_field(name="XP", value=str(xp), inline=True)
-    embed.add_field(name="Rank", value=f"#{rank}" if rank else "Unranked", inline=True)
-    embed.add_field(name="Messages", value=str(messages), inline=True)
-    embed.add_field(name="Voice Minutes", value=str(voice_minutes), inline=True)
-    embed.add_field(name="Daily Streak", value=str(daily_streak), inline=True)
-    embed.add_field(name="Daily XP Progress", value=daily_progress, inline=False)
+    embed.add_field(name="Level", value=f"`{level_label}`", inline=True)
+    embed.add_field(name="XP", value=f"`{xp}`", inline=True)
+    embed.add_field(name="Rank", value=f"`#{rank}`" if rank else "`Unranked`", inline=True)
+    embed.add_field(name="Messages", value=f"`{messages}`", inline=True)
+    embed.add_field(name="Voice Minutes", value=f"`{voice_minutes}`", inline=True)
+    embed.add_field(name="Daily Streak", value=f"`{daily_streak}`", inline=True)
+    embed.add_field(name="Daily XP Progress", value=f"`{daily_progress}`", inline=False)
+    embed.set_footer(text="Activity syncs across message, voice, and reward systems.")
     return embed
 
 
