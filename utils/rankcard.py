@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+from pathlib import Path
 
 import discord
 from PIL import Image, ImageDraw, ImageFont, ImageOps
@@ -10,7 +11,8 @@ from .xp import calculate_progress
 
 def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     try:
-        return ImageFont.truetype("DejaVuSans.ttf", size)
+        font_path = Path(__file__).parent.parent / "assets" / "rankcard" / "DejaVuSans.ttf"
+        return ImageFont.truetype(str(font_path), size)
     except OSError:
         return ImageFont.load_default()
 
