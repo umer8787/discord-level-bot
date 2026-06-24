@@ -15,6 +15,15 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
+def _fit_text(draw: ImageDraw.ImageDraw, text: str, max_width: int, start_size: int, min_size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for size in range(start_size, min_size - 1, -2):
+        font = _load_font(size)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        if bbox[2] - bbox[0] <= max_width:
+            return font
+    return _load_font(min_size)
+
+
 def _draw_progress_bar(
     draw: ImageDraw.ImageDraw,
     bounds: tuple[int, int, int, int],
@@ -30,6 +39,21 @@ def _draw_progress_bar(
         draw.rounded_rectangle((x0, y0, fill_width, y1), radius=radius, fill=fill)
 
 
+def _draw_stat_box(
+    draw: ImageDraw.ImageDraw,
+    bounds: tuple[int, int, int, int],
+    label: str,
+    value: str,
+    accent: tuple[int, int, int, int],
+) -> None:
+    x0, y0, x1, y1 = bounds
+    draw.rounded_rectangle(bounds, radius=20, fill=(33, 41, 58, 255), outline=(55, 67, 90, 255), width=2)
+    label_font = _load_font(18)
+    value_font = _fit_text(draw, value, (x1 - x0) - 28, 28, 18)
+    draw.text((x0 + 16, y0 + 14), label.upper(), font=label_font, fill=(149, 161, 184, 255))
+    draw.text((x0 + 16, y0 + 48), value, font=value_font, fill=accent)
+
+
 async def generate_rank_card(
     member: discord.abc.User,
     level: int,
@@ -39,50 +63,88 @@ async def generate_rank_card(
     daily_xp_cap: int,
     max_level: int,
 ) -> discord.File:
-    width, height = 980, 320
-    card = Image.new("RGBA", (width, height), (18, 23, 33, 255))
+    width, height = 1180, 500
+    card = Image.new("RGBA", (width, height), (15, 20, 30, 255))
     draw = ImageDraw.Draw(card)
 
-    draw.rounded_rectangle((18, 18, width - 18, height - 18), radius=28, fill=(29, 36, 51, 255))
-    draw.rounded_rectangle((30, 30, width - 30, height - 30), radius=24, outline=(92, 126, 255, 255), width=2)
+    draw.rounded_rectangle((20, 20, width - 20, height - 20), radius=34, fill=(23, 30, 43, 255))
+    draw.rounded_rectangle((32, 32, width - 32, height - 32), radius=28, outline=(87, 119, 255, 255), width=2)
 
     avatar_bytes = await member.display_avatar.replace(size=256).read()
-    avatar = Image.open(BytesIO(avatar_bytes)).convert("RGBA").resize((170, 170))
-    avatar_mask = Image.new("L", (170, 170), 0)
-    ImageDraw.Draw(avatar_mask).ellipse((0, 0, 170, 170), fill=255)
-    avatar = ImageOps.fit(avatar, (170, 170))
-    card.paste(avatar, (52, 72), avatar_mask)
+    avatar = Image.open(BytesIO(avatar_bytes)).convert("RGBA").resize((220, 220))
+    avatar_mask = Image.new("L", (220, 220), 0)
+    ImageDraw.Draw(avatar_mask).ellipse((0, 0, 220, 220), fill=255)
+    avatar = ImageOps.fit(avatar, (220, 220))
+    card.paste(avatar, (58, 82), avatar_mask)
+    draw.ellipse((50, 74, 286, 310), outline=(94, 128, 255, 255), width=4)
 
-    title_font = _load_font(36)
-    section_font = _load_font(24)
+    username = member.display_name[:32]
+    username_font = _fit_text(draw, username, 500, 44, 28)
+    title_font = _load_font(20)
+    headline_font = _load_font(30)
     body_font = _load_font(22)
     small_font = _load_font(18)
+    detail_font = _load_font(16)
 
-    draw.text((260, 56), member.display_name[:26], font=title_font, fill=(245, 247, 250, 255))
-    rank_text = f"Server Rank #{rank}" if rank else "Server Rank Unranked"
-    draw.text((260, 102), rank_text, font=section_font, fill=(189, 197, 212, 255))
+    draw.text((330, 70), "COMMUNITY PROFILE", font=title_font, fill=(134, 149, 176, 255))
+    draw.text((330, 102), username, font=username_font, fill=(247, 249, 252, 255))
 
-    maxed = level >= max_level and xp >= 0
-    level_text = f"Level {level}" if level < max_level else "MAX LEVEL"
-    draw.text((260, 142), level_text, font=section_font, fill=(116, 210, 160, 255) if maxed else (112, 150, 255, 255))
-    draw.text((260, 178), f"Total XP {xp}", font=body_font, fill=(229, 233, 240, 255))
+    rank_value = f"#{rank}" if rank else "Unranked"
+    level_value = "MAX LEVEL" if level >= max_level else f"Level {level}"
+    _draw_stat_box(draw, (330, 156, 565, 251), "Server Rank", rank_value, (245, 247, 250, 255))
+    _draw_stat_box(
+        draw,
+        (585, 156, 820, 251),
+        "Current Level",
+        level_value,
+        (116, 210, 160, 255) if level >= max_level else (111, 152, 255, 255),
+    )
+    _draw_stat_box(draw, (840, 156, 1095, 251), "Total XP", f"{xp}", (245, 247, 250, 255))
 
     current_progress, needed_for_next, progress_ratio, at_max = calculate_progress(xp, max_level=max_level)
-    progress_label = "XP Progress"
-    progress_text = "MAX LEVEL" if at_max or level >= max_level else f"{current_progress} / {needed_for_next} XP"
-    draw.text((260, 218), progress_label, font=small_font, fill=(169, 179, 198, 255))
-    draw.text((740, 218), progress_text, font=small_font, fill=(245, 247, 250, 255), anchor="ra")
-    _draw_progress_bar(draw, (260, 246, 744, 270), 1.0 if at_max else progress_ratio, (54, 63, 83, 255), (92, 126, 255, 255))
+    xp_panel = (330, 286, 736, 432)
+    daily_panel = (760, 286, 1095, 432)
+    draw.rounded_rectangle(xp_panel, radius=24, fill=(28, 36, 52, 255), outline=(55, 67, 90, 255), width=2)
+    draw.rounded_rectangle(daily_panel, radius=24, fill=(28, 36, 52, 255), outline=(55, 67, 90, 255), width=2)
 
+    xp_section_left = xp_panel[0] + 24
+    xp_section_right = xp_panel[2] - 24
+    draw.text((xp_section_left, xp_panel[1] + 20), "XP Progress", font=headline_font, fill=(245, 247, 250, 255))
+    progress_value = "MAX LEVEL" if at_max or level >= max_level else f"{current_progress} / {needed_for_next} XP"
+    progress_value_font = _fit_text(draw, progress_value, 300, 24, 18)
+    draw.text((xp_section_right, xp_panel[1] + 28), progress_value, font=progress_value_font, fill=(198, 205, 218, 255), anchor="ra")
+    _draw_progress_bar(
+        draw,
+        (xp_section_left, xp_panel[1] + 74, xp_section_right, xp_panel[1] + 102),
+        1.0 if at_max else progress_ratio,
+        (42, 52, 73, 255),
+        (91, 126, 255, 255),
+    )
+    xp_hint = "You are at the level cap." if at_max or level >= max_level else "Keep chatting to push toward the next level."
+    draw.text((xp_section_left, xp_panel[1] + 118), xp_hint, font=detail_font, fill=(150, 160, 177, 255))
+
+    daily_left = daily_panel[0] + 24
+    daily_right = daily_panel[2] - 24
+    draw.text((daily_left, daily_panel[1] + 20), "Daily XP", font=headline_font, fill=(245, 247, 250, 255))
+    daily_value = f"{daily_xp_earned} / {daily_xp_cap}"
+    daily_value_font = _fit_text(draw, daily_value, 180, 24, 18)
+    draw.text((daily_right, daily_panel[1] + 28), daily_value, font=daily_value_font, fill=(196, 206, 222, 255), anchor="ra")
     daily_ratio = min(max(daily_xp_earned / max(daily_xp_cap, 1), 0.0), 1.0)
-    draw.text((770, 86), "Daily XP", font=section_font, fill=(245, 247, 250, 255))
-    draw.text((770, 122), f"{daily_xp_earned} / {daily_xp_cap}", font=body_font, fill=(205, 213, 225, 255))
-    _draw_progress_bar(draw, (770, 160, 920, 182), daily_ratio, (54, 63, 83, 255), (116, 210, 160, 255))
-    draw.text((770, 200), "Message XP progress resets at midnight UTC", font=small_font, fill=(156, 163, 175, 255))
+    _draw_progress_bar(
+        draw,
+        (daily_left, daily_panel[1] + 74, daily_right, daily_panel[1] + 102),
+        daily_ratio,
+        (42, 52, 73, 255),
+        (116, 210, 160, 255),
+    )
+    daily_remaining = max(daily_xp_cap - daily_xp_earned, 0)
+    draw.text((daily_left, daily_panel[1] + 118), f"{daily_remaining} XP remaining today", font=detail_font, fill=(226, 231, 239, 255))
 
     if at_max or level >= max_level:
-        draw.rounded_rectangle((770, 228, 920, 268), radius=18, fill=(116, 210, 160, 255))
-        draw.text((845, 248), "MAX LEVEL", font=small_font, fill=(20, 27, 38, 255), anchor="mm")
+        badge_bounds = (930, 76, 1098, 124)
+        draw.rounded_rectangle(badge_bounds, radius=20, fill=(116, 210, 160, 255))
+        badge_font = _load_font(20)
+        draw.text(((badge_bounds[0] + badge_bounds[2]) // 2, 100), "MAX LEVEL", font=badge_font, fill=(18, 25, 37, 255), anchor="mm")
 
     buffer = BytesIO()
     card.save(buffer, format="PNG")

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MAX_LEVEL = 50
-DAILY_XP_CAP = 200
+DAILY_XP_CAP = 20
 
 
 def _parse_int(name: str, default: int) -> int:
